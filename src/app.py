@@ -1,5 +1,7 @@
 import time
 import tkinter as tk
+import pandas as pd
+import os
 
 
 class ChronometerApp(tk.Tk):
@@ -72,8 +74,64 @@ class ChronometerApp(tk.Tk):
             minutes, seconds = divmod(total_time, 60)
             hours, minutes = divmod(minutes, 60)
             self.label.config(text=f"Tiempo total: {int(hours):02}:{int(minutes):02}:{int(seconds):02}", fg="white")
+
+            self.save_time_to_csv(int(hours), int(minutes), int(seconds))
+
         self.elapsed_time = 0
         self.start_time = None
+
+    def save_time_to_csv(self, hours, minutes, seconds):
+        today = pd.Timestamp.now().date()
+        day_of_week = today.strftime('%A')
+        day_of_month = today.day
+
+
+        df_today = pd.DataFrame({"Fecha": [today],
+                                 "Día de la Semana": [day_of_week],
+                                 "Día del Mes": [day_of_month],
+                                 "Horas": [hours],
+                                 "Minutos": [minutes],
+                                 "Segundos": [seconds]})
+
+
+        if os.path.exists("tiempos_de_estudio.csv"):
+            df_existing = pd.read_csv("tiempos_de_estudio.csv")
+
+            if df_existing["Fecha"].iloc[-1] == str(today):
+                df_existing.at[len(df_existing) - 1, "Horas"] += hours
+                df_existing.at[len(df_existing) - 1, "Minutos"] += minutes
+                df_existing.at[len(df_existing) - 1, "Segundos"] += seconds
+
+                df_existing.at[len(df_existing) - 1, "Minutos"] += df_existing.at[
+                                                                       len(df_existing) - 1, "Segundos"] // 60
+                df_existing.at[len(df_existing) - 1, "Segundos"] %= 60
+                df_existing.at[len(df_existing) - 1, "Horas"] += df_existing.at[len(df_existing) - 1, "Minutos"] // 60
+                df_existing.at[len(df_existing) - 1, "Minutos"] %= 60
+            else:
+                df_existing = pd.concat([df_existing, df_today], ignore_index=True)
+
+            total_hours = df_existing["Horas"].sum()
+            total_minutes = df_existing["Minutos"].sum()
+            total_seconds = df_existing["Segundos"].sum()
+            total_minutes += total_seconds // 60
+            total_seconds %= 60
+            total_hours += total_minutes // 60
+            total_minutes %= 60
+
+
+            df_totals = pd.DataFrame({"Fecha": ["Total"],
+                                      "Día de la Semana": [""],
+                                      "Día del Mes": [""],
+                                      "Horas": [total_hours],
+                                      "Minutos": [total_minutes],
+                                      "Segundos": [total_seconds]})
+
+            df_existing = pd.concat([df_existing, df_totals], ignore_index=True)
+
+            df_existing.to_csv("tiempos_de_estudio.csv", index=False)
+        else:
+
+            df_today.to_csv("tiempos_de_estudio.csv", index=False)
 
 
 if __name__ == "__main__":
